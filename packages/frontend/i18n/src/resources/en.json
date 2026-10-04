@@ -386,6 +386,8 @@
   "com.affine.backButton": "Back",
   "com.affine.banner.content": "This demo is limited. <1>Download the AFFiNE Client</1> for the latest features and Performance.",
   "com.affine.banner.local-warning": "Your workspace is saved in this browser. When disk space is low, the browser may remove it automatically. Enable AFFiNE Sync to keep it safer.",
+  "com.affine.banner.tauri-local": "Your workspace is saved locally in AFFiNE Tauri on this Mac. Sync is not enabled. Enable sync or keep exported backups to protect your notes.",
+  "com.affine.banner.tauri-local-reclaimable": "Your workspace is saved locally in AFFiNE Tauri on this Mac. Sync is not enabled, and macOS may reclaim this app's web storage when space is low. Enable sync or keep exported backups.",
   "com.affine.brand.affineCloud": "AFFiNE Cloud",
   "com.affine.calendar-date-picker.month-names": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
   "com.affine.calendar-date-picker.today": "Today",

@@ -33,6 +33,7 @@ declare type Environment = {
   isMobile: boolean;
   isChrome: boolean;
   isPwa: boolean;
+  isTauri: boolean;
   chromeVersion?: number;
 
   // runtime configs
@@ -45,6 +46,8 @@ declare type Environment = {
   };
   var environment: Environment;
   var $AFFINE_SETUP: boolean | undefined;
+  var __AFFINE_TAURI__: boolean | undefined;
+  var __AFFINE_TAURI_STORAGE_PERSISTENCE__: Promise<boolean | null> | undefined;
   /**
    * Inject by https://www.npmjs.com/package/@sentry/webpack-plugin
    */

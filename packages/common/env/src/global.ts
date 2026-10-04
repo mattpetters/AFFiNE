@@ -14,6 +14,7 @@ export function setupGlobal() {
     isChrome: false,
     isIOS: false,
     isPwa: false,
+    isTauri: globalThis.__AFFINE_TAURI__ === true,
     isMobile: false,
     isSelfHosted: false,
     // publicPath is the root of assets files

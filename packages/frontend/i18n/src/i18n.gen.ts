@@ -1606,6 +1606,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.banner.local-warning"](): string;
     /**
+      * `Your workspace is saved locally in AFFiNE Tauri on this Mac. Sync is not enabled. Enable sync or keep exported backups to protect your notes.`
+      */
+    ["com.affine.banner.tauri-local"](): string;
+    /**
+      * `Your workspace is saved locally in AFFiNE Tauri on this Mac. Sync is not enabled, and macOS may reclaim this app's web storage when space is low. Enable sync or keep exported backups.`
+      */
+    ["com.affine.banner.tauri-local-reclaimable"](): string;
+    /**
       * `AFFiNE Cloud`
       */
     ["com.affine.brand.affineCloud"](): string;

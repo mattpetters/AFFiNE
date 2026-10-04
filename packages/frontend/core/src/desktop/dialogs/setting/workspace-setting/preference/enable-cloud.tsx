@@ -44,7 +44,11 @@ export const EnableCloudPanel = ({
       name={t['Workspace saved locally']({
         name: name ?? UNTITLED_WORKSPACE_NAME,
       })}
-      desc={t['Enable cloud hint']()}
+      desc={
+        environment.isTauri
+          ? t['com.affine.banner.tauri-local']()
+          : t['Enable cloud hint']()
+      }
       spreadCol={false}
       style={{
         padding: '10px',

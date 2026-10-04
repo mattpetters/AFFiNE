@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AFFiNE Tauri",
+  "version": "0.1.0",
+  "identifier": "com.mattpetters.affine-tauri",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "capabilities": []
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": [
+      "../../electron/resources/icons/icon_canary.icns",
+      "../../electron/resources/icons/icon_canary.png"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Experimental AFFiNE editor powered by Tauri",
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "signingIdentity": "-"
+    }
+  }
+}
