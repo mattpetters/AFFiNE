@@ -134,7 +134,7 @@ root HTTPS URLs or loopback HTTP URLs are accepted. Credentials embedded in URLs
 paths, queries, fragments, and the app's own origin are rejected. Changes take
 effect on the next normal launch. Never change the local storage origin.
 
-For a future HTTPS server, the proxy validates incoming app-origin requests
+For an HTTPS server, the proxy validates incoming app-origin requests
 **before** mapping Origin/Referer to the fixed upstream's HTTPS origin. TLS uses
 the standard public root certificates. This preserves the official server's
 same-origin policy without requiring a backend fork or a broad CORS exception.
@@ -149,7 +149,8 @@ This does not grant remote pages native IPC or share cookies with other browsers
 Before a Railway cutover, back up and restore the same server database, blob
 storage, and configuration, then verify the migrated server before changing this
 file. Pointing this profile at an unrelated empty server is not a migration.
-HTTPS proxy support is implemented; no remote migration is claimed tested.
+The development installation has completed this migration to a Railway HTTPS
+server; the default configuration above remains a local-server example.
 
 ## Validation
 
@@ -174,5 +175,13 @@ was rejected. WebKit returned false for the persistence request on this macOS
 beta, so the app correctly retained the storage-reclamation warning. Native
 Markdown export still needs an interactive check. Password sign-in and enabling
 sync uploaded a workspace, document snapshots, and attachments to the local
-server. Cross-client editing and reconnect behavior still need an interactive
-check; the server browser initially hit the canary namespace issue described above.
+server. After restoring that server to Railway and changing the upstream, the
+existing authenticated session, GraphQL requests, attachments, and authenticated
+realtime connection worked over HTTPS. Subsequent edits persisted on the migrated
+server with signups disabled. The loopback origin and local profile were preserved.
+Offline/reconnect behavior and complete cross-client editing still need dedicated
+interactive checks.
+
+The Journals redirect regression test reproduces a stale browser navigation
+overwriting the selected journal, and covers the fix with browser Back/Forward
+and independent browser navigation. Its first installed-build check is pending.

@@ -2,7 +2,7 @@ import { useLiveData } from '@toeverything/infra';
 import type { Location } from 'history';
 import { useEffect } from 'react';
 // oxlint-disable-next-line no-restricted-imports
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 
 import type { Workbench } from '../entities/workbench';
 
@@ -28,6 +28,7 @@ export function useBindWorkbenchToBrowserRouter(
 ) {
   const navigate = useNavigate();
   const browserLocation = useLocation();
+  const browserNavigationType = useNavigationType();
 
   const view = useLiveData(workbench.activeView$);
 
@@ -68,6 +69,12 @@ export function useBindWorkbenchToBrowserRouter(
       typeof newLocation.state === 'string' &&
       newLocation.state.startsWith('fromView')
     ) {
+      // A route can redirect before this effect receives the browser echo of
+      // its previous location. Only POP represents navigation back to an older
+      // view entry; replaying a PUSH/REPLACE would undo the newer redirect.
+      if (browserNavigationType !== 'POP') {
+        return;
+      }
       const fromViewKey = newLocation.state.substring('fromView,'.length);
       if (fromViewKey === view.location$.value.key) {
         return;
@@ -84,7 +91,7 @@ export function useBindWorkbenchToBrowserRouter(
       }
     }
     view.history.push(newLocation, 'fromBrowser');
-  }, [basename, browserLocation, view]);
+  }, [basename, browserLocation, browserNavigationType, view]);
 }
 
 function browserLocationToViewLocation(
