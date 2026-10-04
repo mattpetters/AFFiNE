@@ -107,6 +107,16 @@ foreign/duplicate Host and Origin headers, cross-site fetches, path traversal,
 and unverified mutation requests. No arbitrary filesystem paths, proxy destinations,
 or native IPC capabilities are exposed. External links open in the system browser.
 
+When using a **canary server image**, set `AFFINE_ENV=dev` on the server while
+keeping `NODE_ENV=production` and `DEPLOYMENT_TYPE=selfhosted`. Here `dev` selects
+the canary release namespace; it does not enable Node development mode. Without
+it, the server's own browser client can sign in but receive “The server rejected
+the real-time request” because its date-style canary version is rejected by the
+realtime version gate. The Tauri build uses the checkout's semantic version and
+may still upload successfully, so a successful Tauri upload alone does not verify
+that the server's browser client can read or sync the workspace. Use the matching
+release namespace for stable images instead of carrying this setting over blindly.
+
 ## Changing the upstream later
 
 On launch the app reads this optional configuration file:
@@ -162,4 +172,7 @@ notes after a clean quit and update. The corrected Tauri banner rendered, the
 proxied session endpoint and Socket.IO handshake responded, and a foreign origin
 was rejected. WebKit returned false for the persistence request on this macOS
 beta, so the app correctly retained the storage-reclamation warning. Native
-Markdown export and signed-in workspace sync still need an interactive check.
+Markdown export still needs an interactive check. Password sign-in and enabling
+sync uploaded a workspace, document snapshots, and attachments to the local
+server. Cross-client editing and reconnect behavior still need an interactive
+check; the server browser initially hit the canary namespace issue described above.
