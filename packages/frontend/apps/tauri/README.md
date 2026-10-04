@@ -184,4 +184,7 @@ interactive checks.
 
 The Journals redirect regression test reproduces a stale browser navigation
 overwriting the selected journal, and covers the fix with browser Back/Forward
-and independent browser navigation. Its first installed-build check is pending.
+and independent browser navigation. After a clean quit, complete profile backup,
+and update, the installed app reopened the existing authenticated workspace.
+Journals opened today's journal editor on both the first visit and a second visit
+from All Docs, with no blank view.
