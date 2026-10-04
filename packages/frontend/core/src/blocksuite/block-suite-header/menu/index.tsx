@@ -447,7 +447,9 @@ const PageHeaderMenuItem = ({
         onSelect={handleOpenTrashModal}
         disabled={!canMoveToTrash}
       />
-      {BUILD_CONFIG.isWeb && workspace.flavour !== 'local' ? (
+      {BUILD_CONFIG.isWeb &&
+      !environment.isTauri &&
+      workspace.flavour !== 'local' ? (
         <MenuItem
           prefixIcon={<LocalWorkspaceIcon />}
           data-testid="editor-option-menu-link"

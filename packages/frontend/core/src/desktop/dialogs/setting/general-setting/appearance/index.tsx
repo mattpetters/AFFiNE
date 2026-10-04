@@ -220,7 +220,7 @@ export const AppearanceSettings = () => {
         </SettingRow>
       </SettingWrapper>
 
-      {BUILD_CONFIG.isWeb && !environment.isMobile ? (
+      {BUILD_CONFIG.isWeb && !environment.isMobile && !environment.isTauri ? (
         <SettingWrapper title={t['com.affine.setting.appearance.links']()}>
           <SettingRow
             name={t['com.affine.setting.appearance.open-in-app']()}

@@ -357,7 +357,7 @@ export function useRegisterBlocksuiteEditorCommands(
       );
     }
 
-    if (isCloudWorkspace && BUILD_CONFIG.isWeb) {
+    if (isCloudWorkspace && BUILD_CONFIG.isWeb && !environment.isTauri) {
       unsubs.push(
         registerAffineCommand({
           id: 'editor:open-in-app',

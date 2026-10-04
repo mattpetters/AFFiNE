@@ -26,7 +26,7 @@ export function AppDownloadButton({
     open(url, '_blank');
   }, []);
 
-  if (!show) {
+  if (!show || environment.isTauri) {
     return null;
   }
   return (
