@@ -13,7 +13,7 @@ interface AppConfig {
 }
 
 const config: CapacitorConfig & AppConfig = {
-  appId: 'app.affine.pro',
+  appId: 'cc.papertrails.affine',
   appName: 'AFFiNE',
   webDir: 'dist',
   affineVersion: packageJson.version,

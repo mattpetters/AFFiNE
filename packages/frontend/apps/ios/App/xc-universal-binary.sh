@@ -30,6 +30,11 @@ export PATH="$(dirname "$CARGO"):$PATH"
 # Ensure IPHONEOS_DEPLOYMENT_TARGET is set for Rust/cc crate builds
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-16.5}"
 
+# The release profile strips symbols, and a stripped proc-macro dylib fails to
+# dlopen on current macOS ("mis-aligned LINKEDIT string pool"). Host-side
+# artifacts (proc macros, build scripts) never ship, so leave them unstripped.
+export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=none
+
 # This should be invoked from inside xcode, not manually
 if [[ "${#}" -ne 3 ]]
 then
