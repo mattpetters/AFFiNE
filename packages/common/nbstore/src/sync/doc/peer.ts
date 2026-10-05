@@ -318,7 +318,13 @@ export class DocSyncPeer {
         !this.remote.isReadonly &&
         clock &&
         (pushedClock === null ||
-          pushedClock.getTime() < clock.timestamp.getTime())
+          pushedClock.getTime() < clock.timestamp.getTime() ||
+          // The root doc lists the docs of the space, and a remote refuses
+          // any doc its root does not list. The pushed clock only says what
+          // was sent, not what the remote still has: a remote restored from
+          // an older backup stays behind for good, and every doc it lost is
+          // rejected in a loop. Reconcile the root by state vector instead.
+          docId === this.local.spaceId)
       ) {
         await this.jobs.pullAndPush(docId, signal);
       } else {

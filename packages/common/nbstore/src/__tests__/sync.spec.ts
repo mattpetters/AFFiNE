@@ -4,7 +4,12 @@ import * as reader from '@affine/reader';
 import { OpConsumer } from '@toeverything/infra/op';
 import { firstValueFrom, NEVER } from 'rxjs';
 import { afterEach, expect, test, vi } from 'vitest';
-import { Doc as YDoc, encodeStateAsUpdate, encodeStateVector } from 'yjs';
+import {
+  applyUpdate,
+  Doc as YDoc,
+  encodeStateAsUpdate,
+  encodeStateVector,
+} from 'yjs';
 
 import { DummyConnection } from '../connection';
 import {
@@ -1360,6 +1365,75 @@ test('store opens serialize A to B to A, propagate failures and drain before clo
     for (const ports of channels) {
       ports.port1.close();
       ports.port2.close();
+    }
+  }
+});
+
+test('doc sync peer re-sends root doc content the remote lost', async () => {
+  const spaceId = 'ws-root-heal';
+  const local = new IndexedDBDocStorage({
+    id: spaceId,
+    flavour: 'local-root-heal',
+    type: 'workspace',
+  });
+  const syncMetadata = new IndexedDBDocSyncStorage({
+    id: spaceId,
+    flavour: 'local-root-heal',
+    type: 'workspace',
+  });
+  // stands in for a server restored from a backup taken before `page-b`
+  const remote = new IndexedDBDocStorage({
+    id: spaceId,
+    flavour: 'remote-root-heal',
+    type: 'workspace',
+  });
+  const peer = new DocSyncPeer('remote-root-heal', local, syncMetadata, remote);
+  const abort = new AbortController();
+
+  for (const storage of [local, syncMetadata, remote]) {
+    storage.connection.connect();
+    await storage.connection.waitForConnected();
+  }
+
+  const root = new YDoc();
+  root.getMap('meta').set('page-a', 'A');
+  const beforeBackup = encodeStateAsUpdate(root);
+  root.getMap('meta').set('page-b', 'B');
+  const { timestamp: localClock } = await local.pushDocUpdate({
+    docId: spaceId,
+    bin: encodeStateAsUpdate(root),
+  });
+  const { timestamp: remoteClock } = await remote.pushDocUpdate({
+    docId: spaceId,
+    bin: beforeBackup,
+  });
+  // the client believes everything was pushed and pulled already
+  await syncMetadata.setPeerPushedClock('remote-root-heal', {
+    docId: spaceId,
+    timestamp: localClock,
+  });
+  await syncMetadata.setPeerPulledRemoteClock('remote-root-heal', {
+    docId: spaceId,
+    timestamp: remoteClock,
+  });
+
+  try {
+    void peer.mainLoop(abort.signal);
+
+    await vi.waitFor(async () => {
+      const remoteRoot = new YDoc();
+      const record = await remote.getDoc(spaceId);
+      expect(record).not.toBeNull();
+      applyUpdate(remoteRoot, record!.bin);
+      expect(remoteRoot.getMap('meta').toJSON()).toEqual({
+        'page-a': 'A',
+        'page-b': 'B',
+      });
+    });
+  } finally {
+    abort.abort();
+    for (const storage of [local, syncMetadata, remote]) {
+      storage.connection.disconnect();
     }
   }
 });
