@@ -38,6 +38,7 @@
 		9D52FC432D26CDBF00105D0A /* JSValueContainerExt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D52FC422D26CDB600105D0A /* JSValueContainerExt.swift */; };
 		9D90BE272CCB9876006677DB /* AffineViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D90BE1B2CCB9876006677DB /* AffineViewController.swift */; };
 		9D90BE282CCB9876006677DB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D90BE1C2CCB9876006677DB /* AppDelegate.swift */; };
+		5C3E00022EB0000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E00012EB0000000000001 /* SceneDelegate.swift */; };
 		9D90BE292CCB9876006677DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9D90BE1D2CCB9876006677DB /* Assets.xcassets */; };
 		9D90BE2A2CCB9876006677DB /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 9D90BE1E2CCB9876006677DB /* capacitor.config.json */; };
 		9D90BE2B2CCB9876006677DB /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 9D90BE1F2CCB9876006677DB /* config.xml */; };
@@ -132,6 +133,7 @@
 		9D52FC422D26CDB600105D0A /* JSValueContainerExt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSValueContainerExt.swift; sourceTree = "<group>"; };
 		9D90BE1B2CCB9876006677DB /* AffineViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AffineViewController.swift; sourceTree = "<group>"; };
 		9D90BE1C2CCB9876006677DB /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		5C3E00012EB0000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		9D90BE1D2CCB9876006677DB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9D90BE1E2CCB9876006677DB /* capacitor.config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		9D90BE1F2CCB9876006677DB /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -334,6 +336,7 @@
 				50C000012F02000000000000 /* SignIn */,
 				9DAE85B72E7BAC3B00DB9F1D /* Plugins */,
 				9D90BE1C2CCB9876006677DB /* AppDelegate.swift */,
+				5C3E00012EB0000000000001 /* SceneDelegate.swift */,
 				507513692D1924C600AD60C0 /* RootViewController.swift */,
 				9D90BE1B2CCB9876006677DB /* AffineViewController.swift */,
 				50FF428B2D2E77CC0050AA83 /* AffineViewController+AIButton.swift */,
@@ -631,6 +634,7 @@
 				50FF428C2D2E77CC0050AA83 /* AffineViewController+AIButton.swift in Sources */,
 				9D90BE272CCB9876006677DB /* AffineViewController.swift in Sources */,
 				9D90BE282CCB9876006677DB /* AppDelegate.swift in Sources */,
+				5C3E00022EB0000000000001 /* SceneDelegate.swift in Sources */,
 				5027D4802E7C611900ADD25A /* Tools.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -45,6 +45,25 @@
 	<string>AFFiNE requires access to select photos from your photo library and insert them into your documents</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Rest assured, enabling this permission won&apos;t access your private info on other sites. It&apos;s only used to identify your device and improve security and product experience.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIImageName</key>
