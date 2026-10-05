@@ -1,15 +1,25 @@
 /**
  * @vitest-environment happy-dom
  */
-import { CUSTOM_ICON_MAX_SIZE } from '@affine/component';
+import {
+  CUSTOM_ICON_MAX_SIZE,
+  type IconData,
+  IconType,
+} from '@affine/component';
 import { createORMClient, Framework, YjsDBAdapter } from '@toeverything/infra';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { Doc as YDoc, encodeStateAsUpdate } from 'yjs';
+import { applyUpdate, Doc as YDoc, encodeStateAsUpdate } from 'yjs';
 
 import { WorkspaceDBService } from '../../db';
 import { AFFiNE_WORKSPACE_DB_SCHEMA } from '../../db/schema';
+import {
+  ExplorerIconStore,
+  type ExplorerType,
+} from '../../explorer-icon/store/explorer-icon';
 import { CustomIconStore } from '../store/custom-icon';
 import { CustomIconService } from './custom-icon';
+
+const emoji: IconData = { type: IconType.Emoji, unicode: '💡' };
 
 const image = (name: string, content = name) =>
   new File([content], name, { type: 'image/png' });
@@ -30,10 +40,17 @@ const setup = () => {
   const framework = new Framework();
   framework
     .service(WorkspaceDBService, { db } as unknown as WorkspaceDBService)
+    .store(ExplorerIconStore, [WorkspaceDBService])
     .store(CustomIconStore, [WorkspaceDBService])
     .service(CustomIconService, [CustomIconStore]);
+  const provider = framework.provider();
 
-  return { service: framework.provider().get(CustomIconService), db, docs };
+  return {
+    service: provider.get(CustomIconService),
+    explorerIconStore: provider.get(ExplorerIconStore),
+    db,
+    doc: docs.get('explorerIcon') as YDoc,
+  };
 };
 
 const mockObjectUrls = () => {
@@ -49,8 +66,9 @@ afterEach(() => {
 });
 
 describe('CustomIconService', () => {
-  test('stores the image bytes of uploaded icons in the workspace db', async () => {
+  test('stores uploaded icons in the explorerIcon table, under their own namespace', async () => {
     const { service, db } = setup();
+    vi.spyOn(Date, 'now').mockReturnValue(42);
 
     const result = await service.upload(
       [image('b.png', 'bytes of b'), image('a.png'), new File(['x'], 'n.txt')],
@@ -69,11 +87,16 @@ describe('CustomIconService', () => {
     ]);
 
     const [, b] = service.packs$.value[0].icons;
-    expect(db.customIconData.find()).toHaveLength(2);
-    expect(db.customIconData.get(b.id)).toEqual({
-      id: b.id,
-      mime: 'image/png',
-      data: btoa('bytes of b'),
+    expect(db.explorerIcon.find()).toHaveLength(2);
+    expect(db.explorerIcon.get(`customIcon:${b.id}`)).toEqual({
+      id: `customIcon:${b.id}`,
+      icon: {
+        pack: 'Brand',
+        name: 'b',
+        mime: 'image/png',
+        data: btoa('bytes of b'),
+        createdAt: 42,
+      },
     });
   });
 
@@ -85,8 +108,7 @@ describe('CustomIconService', () => {
     ]);
 
     expect(result).toEqual({ added: 0, skipped: ['huge.png'] });
-    expect(db.customIcon.find()).toEqual([]);
-    expect(db.customIconData.find()).toEqual([]);
+    expect(db.explorerIcon.find()).toEqual([]);
   });
 
   test('falls back to the default pack and keeps packs in creation order', async () => {
@@ -111,8 +133,9 @@ describe('CustomIconService', () => {
     ]);
   });
 
-  test('deleting an icon or a pack deletes the image bytes too', async () => {
-    const { service, db } = setup();
+  test('deleting an icon or a pack deletes its row, entity icons are kept', async () => {
+    const { service, explorerIconStore, db } = setup();
+    explorerIconStore.setIcon({ where: 'doc', id: 'doc-1', icon: emoji });
     await service.upload([image('a.png'), image('b.png')], 'Brand');
     await service.upload([image('c.png')], 'Other');
     const [a, b] = service.packs$.value[0].icons;
@@ -120,24 +143,88 @@ describe('CustomIconService', () => {
 
     service.deleteIcon(a.id);
     expect(service.packs$.value[0].icons).toEqual([b]);
-    expect(db.customIconData.get(a.id)).toBeNull();
-    expect(db.customIconData.get(b.id)).not.toBeNull();
+    expect(db.explorerIcon.get(`customIcon:${a.id}`)).toBeNull();
+    expect(db.explorerIcon.get(`customIcon:${b.id}`)).not.toBeNull();
 
     service.deletePack('Brand');
     expect(service.packs$.value.map(pack => pack.name)).toEqual(['Other']);
-    expect(db.customIconData.find().map(data => data.id)).toEqual([c.id]);
+    expect(
+      db.explorerIcon
+        .find()
+        .map(row => row.id)
+        .sort()
+    ).toEqual([`customIcon:${c.id}`, 'doc:doc-1'].sort());
   });
 
   test('deleted image bytes are dropped from the synced doc', async () => {
-    const { service, docs } = setup();
-    const size = () =>
-      encodeStateAsUpdate(docs.get('customIconData') as YDoc).byteLength;
+    const { service, doc } = setup();
+    const size = () => encodeStateAsUpdate(doc).byteLength;
 
     await service.upload([image('a.png', 'x'.repeat(100 * 1024))], 'Brand');
     expect(size()).toBeGreaterThan(100 * 1024);
 
     service.deletePack('Brand');
     expect(size()).toBeLessThan(1024);
+  });
+
+  test('entity icons and custom icons never see each other', async () => {
+    const { service, explorerIconStore, db } = setup();
+    explorerIconStore.setIcon({ where: 'doc', id: 'doc-1', icon: emoji });
+    explorerIconStore.setIcon({ where: 'tag', id: 'tag-1', icon: emoji });
+    await service.upload([image('a.png')], 'Brand');
+    const [{ id }] = service.packs$.value[0].icons;
+
+    // only the custom icon is listed, though the table holds three rows
+    expect(db.explorerIcon.find()).toHaveLength(3);
+    expect(service.packs$.value).toEqual([
+      { name: 'Brand', icons: [{ id, name: 'a' }] },
+    ]);
+    expect(explorerIconStore.getIcon('doc', 'doc-1')?.icon).toEqual(emoji);
+
+    // a custom icon row is not the icon of an entity, whatever asks for it
+    const customIcon = 'customIcon' as ExplorerType;
+    expect(explorerIconStore.getIcon(customIcon, id)).toBeNull();
+    const watched = vi.fn();
+    explorerIconStore
+      .watchIcon(customIcon, id)
+      .subscribe(watched)
+      .unsubscribe();
+    expect(watched).toHaveBeenLastCalledWith(null);
+
+    // an entity icon row is not a custom icon
+    const url = vi.fn();
+    service.watchUrl('doc-1', url)();
+    expect(url).toHaveBeenLastCalledWith(null);
+  });
+
+  test('the pack list is not recomputed when an entity icon changes', async () => {
+    const { service, explorerIconStore } = setup();
+    await service.upload([image('a.png')], 'Brand');
+    const packs = vi.fn();
+    const subscription = service.packs$.subscribe(packs);
+    packs.mockClear();
+
+    explorerIconStore.setIcon({ where: 'doc', id: 'doc-1', icon: emoji });
+    explorerIconStore.setIcon({ where: 'doc', id: 'doc-1' });
+    expect(packs).not.toHaveBeenCalled();
+
+    await service.upload([image('b.png')], 'Brand');
+    expect(packs).toHaveBeenCalledTimes(1);
+    subscription.unsubscribe();
+  });
+
+  test('ignores malformed rows in the custom icon namespace', () => {
+    const { service, db } = setup();
+    db.explorerIcon.create({ id: 'customIcon:emoji', icon: emoji });
+    db.explorerIcon.create({
+      id: 'customIcon:partial',
+      icon: { pack: 'Brand', name: 'x' } as never,
+    });
+
+    expect(service.packs$.value).toEqual([]);
+    const url = vi.fn();
+    service.watchUrl('partial', url)();
+    expect(url).toHaveBeenLastCalledWith(null);
   });
 
   test('creates one object url per icon, revoked when the icon is deleted', async () => {
@@ -169,23 +256,42 @@ describe('CustomIconService', () => {
     unwatchSecond();
   });
 
-  test('picks up an image that arrives later, e.g. by sync', async () => {
-    const { service, db } = setup();
+  test('an icon synced from another device replaces the placeholder live', async () => {
+    const local = setup();
+    const remote = setup();
     mockObjectUrls();
+    await remote.service.upload([image('a.png')], 'Brand');
+    const [{ id }] = remote.service.packs$.value[0].icons;
+
+    // subscribed first, as a rendered doc pointing at a not yet synced icon
     const callback = vi.fn();
-
-    const unwatch = service.watchUrl('late', callback);
+    const unwatch = local.service.watchUrl(id, callback);
     expect(callback).toHaveBeenLastCalledWith(null);
+    expect(local.service.packs$.value).toEqual([]);
 
-    db.customIconData.create({ id: 'late', mime: 'image/png', data: 'AA==' });
+    // the row arrives afterwards
+    applyUpdate(local.doc, encodeStateAsUpdate(remote.doc), 'remote');
+
     expect(callback).toHaveBeenLastCalledWith('blob:url-1');
+    expect(local.service.packs$.value).toEqual([
+      { name: 'Brand', icons: [{ id, name: 'a' }] },
+    ]);
     unwatch();
   });
 
   test('ignores synced data that does not claim to be a supported image', () => {
     const { service, db } = setup();
     const { create } = mockObjectUrls();
-    db.customIconData.create({ id: 'evil', mime: 'text/html', data: 'AA==' });
+    db.explorerIcon.create({
+      id: 'customIcon:evil',
+      icon: {
+        pack: 'Brand',
+        name: 'evil',
+        mime: 'text/html',
+        data: 'AA==',
+        createdAt: 1,
+      },
+    });
     const callback = vi.fn();
 
     service.watchUrl('evil', callback)();

@@ -4,24 +4,16 @@ import {
   type CustomIconUploadResult,
 } from '@affine/component';
 import { LiveData, Service } from '@toeverything/infra';
-import { map, type Observable } from 'rxjs';
+import { map } from 'rxjs';
 
 import {
   base64ToUint8Array,
   uint8ArrayToBase64,
 } from '../../workspace-engine/utils/base64';
-import type { CustomIconStore } from '../store/custom-icon';
+import type { CustomIconRecord, CustomIconStore } from '../store/custom-icon';
 import { collectIconFiles } from '../utils/collect-icon-files';
 
 export const DEFAULT_CUSTOM_ICON_PACK = 'My icons';
-
-type ObservedValue<T> = T extends Observable<infer V> ? V : never;
-type CustomIconRecord = ObservedValue<
-  ReturnType<CustomIconStore['watchIcons']>
->[number];
-type CustomIconData = ObservedValue<
-  ReturnType<CustomIconStore['watchIconData']>
->;
 
 const ALLOWED_MIME = new Set(Object.values(CUSTOM_ICON_MIME));
 
@@ -106,13 +98,14 @@ export class CustomIconService extends Service {
 
   /**
    * The object url of the icon image, `null` while the image is not available,
-   * e.g. it is not synced yet or the icon is deleted.
+   * e.g. the icon is deleted or not synced yet. It follows the icon, so the
+   * url arrives as soon as the icon is synced from another device.
    */
   url$(iconId: string) {
     return LiveData.from(
       this.store
-        .watchIconData(iconId)
-        .pipe(map(data => this.resolveUrl(iconId, data))),
+        .watchIcon(iconId)
+        .pipe(map(icon => this.resolveUrl(iconId, icon))),
       this.urls.get(iconId) ?? null
     );
   }
@@ -125,10 +118,10 @@ export class CustomIconService extends Service {
     return () => subscription.unsubscribe();
   }
 
-  private resolveUrl(iconId: string, data: CustomIconData) {
+  private resolveUrl(iconId: string, icon: CustomIconRecord | null) {
     const cached = this.urls.get(iconId);
     // the table is synced, so its content can not be trusted to be an image
-    if (!data || !ALLOWED_MIME.has(data.mime) || this.disposed) {
+    if (!icon || !ALLOWED_MIME.has(icon.mime) || this.disposed) {
       if (cached) {
         URL.revokeObjectURL(cached);
         this.urls.delete(iconId);
@@ -138,7 +131,7 @@ export class CustomIconService extends Service {
     if (cached) return cached;
 
     const url = URL.createObjectURL(
-      new Blob([base64ToUint8Array(data.data)], { type: data.mime })
+      new Blob([base64ToUint8Array(icon.data)], { type: icon.mime })
     );
     this.urls.set(iconId, url);
     return url;

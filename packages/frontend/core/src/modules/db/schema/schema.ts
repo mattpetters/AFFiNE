@@ -12,6 +12,23 @@ import type { WorkspacePropertyType } from '../../workspace-property';
 
 const integrationType = f.enum('readwise');
 
+/**
+ * An uploaded custom icon, the image is inlined so it syncs with the table.
+ */
+export type StoredCustomIcon = {
+  /**
+   * name of the pack this icon belongs to
+   */
+  pack: string;
+  name: string;
+  mime: string;
+  /**
+   * the image in base64, since there is no binary field
+   */
+  data: string;
+  createdAt: number;
+};
+
 export const AFFiNE_WORKSPACE_DB_SCHEMA = {
   folders: {
     id: f.string().primaryKey().optional().default(nanoid),
@@ -49,34 +66,14 @@ export const AFFiNE_WORKSPACE_DB_SCHEMA = {
   },
   explorerIcon: {
     /**
-     * ${doc|collection|folder|tag}:${id}
+     * `${doc|collection|folder|tag}:${id}` for the icon of an entity,
+     * `customIcon:${iconId}` for an uploaded custom icon.
+     *
+     * Custom icons live in this table since the server only syncs an
+     * allowlist of workspace db tables, a table of their own never syncs.
      */
     id: f.string().primaryKey(),
-    icon: f.json<IconData>(),
-  },
-  customIcon: {
-    id: f.string().primaryKey().optional().default(nanoid),
-    /**
-     * name of the pack this icon belongs to
-     */
-    pack: f.string(),
-    name: f.string(),
-    createdAt: f.number(),
-  },
-  /**
-   * The images of the custom icons, kept in a table (a doc) of their own so
-   * the icons can be listed without reading any image.
-   */
-  customIconData: {
-    /**
-     * id of the custom icon
-     */
-    id: f.string().primaryKey(),
-    mime: f.string(),
-    /**
-     * base64, since there is no binary field
-     */
-    data: f.string(),
+    icon: f.json<IconData | StoredCustomIcon>(),
   },
 } as const satisfies DBSchemaBuilder;
 export type AFFiNEWorkspaceDbSchema = typeof AFFiNE_WORKSPACE_DB_SCHEMA;
