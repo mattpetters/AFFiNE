@@ -174,7 +174,10 @@ export class PgWorkspaceDocStorageAdapter extends DocStorageAdapter {
         });
       }
     } catch (e) {
-      this.logger.error('Failed to insert doc updates', e);
+      this.logger.error(
+        `Failed to insert doc updates workspace=${workspaceId} doc=${docId}`,
+        e
+      );
       metrics.doc.counter('doc_update_insert_failed').add(1);
       throw new FailedToSaveUpdates();
     }
