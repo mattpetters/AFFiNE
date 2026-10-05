@@ -22,6 +22,11 @@ use crate::llm::{
   byok::{ByokEndpoint, ByokPolicy, ByokProfileDefinition, SensitiveCredential, definition_fingerprint},
 };
 
+// Clients abort a probe request after 15s, so every provider call has to end
+// well inside that.
+const PROBE_CHECK_TIMEOUT_MS: u64 = 12_000;
+const MODEL_LIST_TIMEOUT: Duration = Duration::from_secs(8);
+
 pub(super) async fn execute_probe(
   provider: &str,
   definition: &ByokProfileDefinition,
@@ -46,7 +51,16 @@ pub(super) async fn execute_probe(
     requested.push(key);
   }
 
-  let mut models = Vec::new();
+  if requested
+    .iter()
+    .any(|(model_id, _)| !definition.models.iter().any(|model| &model.model_id == model_id))
+  {
+    return Err(RuntimeError::invalid_input("BYOK probe model not found"));
+  }
+
+  let mut models: Vec<ByokModelProbeOutput> = Vec::new();
+  // (model index, check index, running provider call)
+  let mut pending = Vec::new();
   for model in &definition.models {
     let model_checks = requested
       .iter()
@@ -72,18 +86,22 @@ pub(super) async fn execute_probe(
           .map_err(|_| RuntimeError::invalid_state("credential_unavailable"))?;
         let operation_for_task = operation.clone();
         let egress_policy = policy.egress_policy(&endpoint);
-        tokio::task::spawn_blocking(move || {
-          dispatch_check(
-            &provider,
-            &endpoint,
-            &model_id,
-            credential,
-            &operation_for_task,
-            egress_policy,
-          )
-        })
-        .await
-        .map_err(|error| RuntimeError::invalid_state(format!("BYOK model probe task failed: {error}")))?
+        pending.push((
+          models.len(),
+          outputs.len(),
+          tokio::task::spawn_blocking(move || {
+            dispatch_check(
+              &provider,
+              &endpoint,
+              &model_id,
+              credential,
+              &operation_for_task,
+              egress_policy,
+            )
+          }),
+        ));
+        // replaced below once the provider call finishes
+        not_tested()
       };
       outputs.push(ByokModelProbeCheckOutput {
         operation,
@@ -95,15 +113,18 @@ pub(super) async fn execute_probe(
       checks: outputs,
     });
   }
-  if requested
-    .iter()
-    .any(|(model_id, _)| !definition.models.iter().any(|model| &model.model_id == model_id))
-  {
-    return Err(RuntimeError::invalid_input("BYOK probe model not found"));
-  }
 
-  let connection = connection_status(tested_at_ms, &models);
+  // Every check is an independent provider call and all of them are already
+  // running, so the probe takes as long as the slowest call rather than the
+  // sum. Run in sequence, a key with a handful of models outlasted the 15s
+  // request timeout of clients.
   let available_models = list_provider_models(provider, &definition.endpoint, &credential).await;
+  for (model_index, check_index, task) in pending {
+    models[model_index].checks[check_index].status = task
+      .await
+      .map_err(|error| RuntimeError::invalid_state(format!("BYOK model probe task failed: {error}")))?;
+  }
+  let connection = connection_status(tested_at_ms, &models);
 
   Ok(ByokProbeResultOutput {
     definition_fingerprint: definition_fingerprint(definition),
@@ -132,7 +153,7 @@ async fn list_provider_models(
     .and_then(|tls| {
       reqwest::Client::builder()
         .tls_backend_preconfigured(tls)
-        .timeout(Duration::from_secs(10))
+        .timeout(MODEL_LIST_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())
     })
@@ -240,7 +261,7 @@ fn dispatch_check(
     },
     model: model_id.to_string(),
     credential: BackendCredential::new(credential),
-    timeout_ms: Some(15_000),
+    timeout_ms: Some(PROBE_CHECK_TIMEOUT_MS),
     egress_policy,
   });
   let target = match target {
@@ -529,6 +550,109 @@ mod tests {
   use llm_adapter::target::OpenAiDialect;
 
   use super::*;
+
+  #[tokio::test]
+  async fn probe_checks_run_concurrently() {
+    const MODELS: usize = 5;
+    const PROVIDER_LATENCY: std::time::Duration = std::time::Duration::from_millis(600);
+
+    // every request is answered after PROVIDER_LATENCY, each on its own thread
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}/v1", listener.local_addr().unwrap());
+    let server = thread::spawn(move || {
+      let workers = listener
+        .incoming()
+        .take(MODELS)
+        .map(|stream| {
+          thread::spawn(move || {
+            let mut stream = stream.unwrap();
+            read_request(&mut stream);
+            thread::sleep(PROVIDER_LATENCY);
+            let body = json!({
+              "model": "smoke-model",
+              "data": [{ "embedding": [0.1], "index": 0 }],
+              "usage": { "prompt_tokens": 1, "total_tokens": 1 }
+            })
+            .to_string();
+            let response = format!(
+              "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+              body.len(),
+              body
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+          })
+        })
+        .collect::<Vec<_>>();
+      for worker in workers {
+        worker.join().unwrap();
+      }
+    });
+
+    let model_ids = (0..MODELS).map(|index| format!("embed-{index}")).collect::<Vec<_>>();
+    let definition = crate::llm::byok::validate_definition(
+      "openai",
+      crate::llm::ByokProfileDefinitionInput {
+        endpoint: crate::llm::byok::ByokEndpointInput {
+          kind: "openai_compatible".to_string(),
+          url: Some(endpoint),
+          dialect: Some("chat_completions".to_string()),
+        },
+        models: model_ids
+          .iter()
+          .map(|model_id| crate::llm::byok::ByokModelDeclarationInput {
+            model_id: model_id.clone(),
+            enabled: true,
+            capabilities: vec![crate::llm::byok::ByokCapabilityInput {
+              input: vec!["text".to_string()],
+              output: vec!["embedding".to_string()],
+              features: vec![],
+              attachment_kinds: vec![],
+              attachment_sources: vec![],
+            }],
+          })
+          .collect(),
+      },
+    )
+    .unwrap();
+    let policy = ByokPolicy::from(
+      crate::runtime::Deployment::SelfHosted,
+      &crate::runtime::config::CopilotByokRuntimeConfig {
+        allow_custom_endpoint: true,
+        allow_private_endpoint: true,
+        ..Default::default()
+      },
+    );
+    let checks = model_ids
+      .iter()
+      .map(|model_id| ByokProbeCheckInput {
+        model_id: model_id.clone(),
+        operation: "embedding".to_string(),
+      })
+      .collect();
+
+    let started = std::time::Instant::now();
+    let result = execute_probe(
+      "openai",
+      &definition,
+      SensitiveCredential::new("smoke-key"),
+      &policy,
+      checks,
+    )
+    .await
+    .unwrap();
+    let elapsed = started.elapsed();
+    server.join().unwrap();
+
+    assert_eq!(result.models.len(), MODELS);
+    for model in &result.models {
+      assert_eq!(model.checks[0].status.kind, "verified", "{}", model.model_id);
+    }
+    // in sequence this takes MODELS * PROVIDER_LATENCY
+    assert!(
+      elapsed < PROVIDER_LATENCY * 3,
+      "{MODELS} checks took {elapsed:?}, expected them to overlap"
+    );
+  }
 
   #[test]
   fn provider_model_lists_are_parsed_per_provider() {
