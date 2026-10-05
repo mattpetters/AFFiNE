@@ -179,6 +179,11 @@ export class PgWorkspaceDocStorageAdapter extends DocStorageAdapter {
         e
       );
       metrics.doc.counter('doc_update_insert_failed').add(1);
+      // The doc was deleted or the workspace root never listed it. Clients
+      // must be able to tell this apart from a failure worth retrying.
+      if (e instanceof Error && e.message.includes('doc_not_found')) {
+        throw new DocNotFound({ spaceId: workspaceId, docId });
+      }
       throw new FailedToSaveUpdates();
     }
     return timestamp;

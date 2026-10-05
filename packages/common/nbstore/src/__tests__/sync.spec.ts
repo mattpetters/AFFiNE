@@ -1437,3 +1437,72 @@ test('doc sync peer re-sends root doc content the remote lost', async () => {
     }
   }
 });
+
+class DeletedDocRemoteDocStorage extends PermissionDeniedRemoteDocStorage {
+  readonly pushed: string[] = [];
+
+  override async pushDocUpdate(update: DocUpdate): Promise<DocClock> {
+    this.pushed.push(update.docId);
+    if (update.docId === 'doc-deleted') {
+      const error = new Error('Doc doc-deleted not found');
+      error.name = 'DOC_NOT_FOUND';
+      throw error;
+    }
+    return { docId: update.docId, timestamp: new Date() };
+  }
+}
+
+test('doc sync peer skips a doc the remote no longer has without blocking sync', async () => {
+  const local = new IndexedDBDocStorage({
+    id: 'ws-deleted',
+    flavour: 'local-deleted',
+    type: 'workspace',
+  });
+  const syncMetadata = new IndexedDBDocSyncStorage({
+    id: 'ws-deleted',
+    flavour: 'local-deleted',
+    type: 'workspace',
+  });
+  const remote = new DeletedDocRemoteDocStorage('ws-deleted');
+  const peer = new DocSyncPeer('remote-deleted', local, syncMetadata, remote);
+  const abort = new AbortController();
+
+  local.connection.connect();
+  syncMetadata.connection.connect();
+  await local.connection.waitForConnected();
+  await syncMetadata.connection.waitForConnected();
+
+  for (const docId of ['doc-deleted', 'doc-alive']) {
+    const doc = new YDoc();
+    doc.getMap('test').set('hello', docId);
+    await local.pushDocUpdate({ docId, bin: encodeStateAsUpdate(doc) });
+  }
+
+  try {
+    void peer.mainLoop(abort.signal);
+
+    await vi.waitFor(() => {
+      expect(remote.pushed).toContain('doc-deleted');
+      expect(remote.pushed).toContain('doc-alive');
+    });
+    await vi.waitFor(() => {
+      let state: { synced: boolean; errorMessage: string | null } | undefined;
+      const dispose = peer.peerState$.subscribe(next => {
+        state = next;
+      });
+      dispose.unsubscribe();
+
+      expect(state).toMatchObject({ synced: true, errorMessage: null });
+    });
+
+    // no retry loop for the deleted doc
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    expect(remote.pushed.filter(docId => docId === 'doc-deleted')).toHaveLength(
+      1
+    );
+  } finally {
+    abort.abort();
+    local.connection.disconnect();
+    syncMetadata.connection.disconnect();
+  }
+});

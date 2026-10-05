@@ -41,6 +41,10 @@ interface Status {
   connectedDocs: Set<string>;
   docErrors: Map<string, string>;
   retryOnLocalUpdate: Set<string>;
+  /**
+   * docs the remote reported as not existing, skipped for this connection
+   */
+  remoteMissingDocs: Set<string>;
   jobDocQueue: AsyncPriorityQueue;
   jobMap: Map<string, Job[]>;
   remoteClocks: ClockMap;
@@ -103,6 +107,10 @@ function isRemotePermissionError(error: unknown) {
   }
   const name = error.name.toUpperCase();
   return name === 'DOC_ACTION_DENIED' || name === 'SPACE_ACCESS_DENIED';
+}
+
+function isRemoteDocMissingError(error: unknown) {
+  return error instanceof Error && error.name.toUpperCase() === 'DOC_NOT_FOUND';
 }
 
 function isDocScopedError(error: unknown) {
@@ -187,6 +195,7 @@ export class DocSyncPeer {
     connectedDocs: new Set<string>(),
     docErrors: new Map<string, string>(),
     retryOnLocalUpdate: new Set<string>(),
+    remoteMissingDocs: new Set<string>(),
     jobDocQueue: new AsyncPriorityQueue(),
     jobMap: new Map(),
     remoteClocks: new ClockMap(new Map()),
@@ -668,6 +677,7 @@ export class DocSyncPeer {
           connectedDocs: new Set(),
           docErrors: new Map(),
           retryOnLocalUpdate: new Set(),
+          remoteMissingDocs: new Set(),
           jobDocQueue: new AsyncPriorityQueue(),
           jobMap: new Map(),
           remoteClocks: new ClockMap(new Map()),
@@ -933,6 +943,20 @@ export class DocSyncPeer {
       await job();
       return true;
     } catch (error) {
+      if (docId !== this.local.spaceId && isRemoteDocMissingError(error)) {
+        // The remote has no such doc and its root, reconciled before any
+        // other doc, does not list it: the doc was deleted there. Retrying
+        // can never succeed, and leftover local updates of a deleted doc are
+        // not an error worth showing. Skip it for this connection; the next
+        // connection tries once more in case the doc is back.
+        console.warn('Sync skipped for doc missing on remote', { docId });
+        this.status.remoteMissingDocs.add(docId);
+        this.status.connectedDocs.delete(docId);
+        this.status.jobMap.delete(docId);
+        this.statusUpdatedSubject$.next(docId);
+        this.statusUpdatedSubject$.next(true);
+        return false;
+      }
       if (!isDocScopedError(error)) {
         throw error;
       }
@@ -960,7 +984,8 @@ export class DocSyncPeer {
 
   private schedule(job: Job) {
     if (
-      this.status.docErrors.has(job.docId) &&
+      (this.status.docErrors.has(job.docId) ||
+        this.status.remoteMissingDocs.has(job.docId)) &&
       (job.type === 'connect' ||
         job.type === 'push' ||
         job.type === 'pull' ||
