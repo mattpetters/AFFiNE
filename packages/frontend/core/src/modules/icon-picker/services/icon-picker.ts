@@ -10,7 +10,10 @@ export type {
 } from '@blocksuite/affine-shared/services';
 export { IconPickerServiceIdentifier } from '@blocksuite/affine-shared/services';
 
-export class IconPickerService extends Service implements IIconPickerService {
+export class IconPickerService
+  extends Service
+  implements Pick<IIconPickerService, 'iconPickerComponent'>
+{
   public readonly iconPickerComponent =
     uniReactRoot.createUniComponent(IconPicker);
 }

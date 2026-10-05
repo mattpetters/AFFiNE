@@ -6,10 +6,11 @@ export const docIconPickerTrigger = style({
   height: 64,
   padding: 2,
   selectors: {
-    '&[data-icon-type="emoji"], &[data-icon-type="affine-icon"]': {
-      fontSize: 60,
-      lineHeight: 1,
-    },
+    '&[data-icon-type="emoji"], &[data-icon-type="affine-icon"], &[data-icon-type="custom"]':
+      {
+        fontSize: 60,
+        lineHeight: 1,
+      },
     '&[data-icon-type="emoji"]': {
       fontFamily: 'Inter',
     },

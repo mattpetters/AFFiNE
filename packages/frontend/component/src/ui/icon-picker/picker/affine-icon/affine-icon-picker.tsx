@@ -1,28 +1,25 @@
-import keywords from '@blocksuite/icons/keywords/en.json';
-import * as allIcons from '@blocksuite/icons/rc';
+import { SearchIcon } from '@blocksuite/icons/rc';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import {
+  createContext,
   type KeyboardEvent,
+  memo,
   startTransition,
   useCallback,
+  useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
 import { IconButton } from '../../../button';
 import Input from '../../../input';
+import { Masonry, type MasonryGroup, type MasonryItem } from '../../../masonry';
 import { Menu } from '../../../menu';
-import { Scrollable } from '../../../scrollbar';
 import { AffineIconRenderer } from '../../renderer/affine-icon';
 import * as pickerStyles from '../picker.css';
 import * as styles from './affine-icon-picker.css';
-
-type Icon = {
-  name: string;
-  keywords: string[];
-};
-
-const icons = keywords['Emoji Panel'] as Icon[];
+import { filterIconGroups, type IconGroup, iconGroups } from './groups';
 
 const colorList: string[] = [
   cssVarV2.block.callout.icon.red,
@@ -61,12 +58,48 @@ const useRecentIcons = () => {
   };
 };
 
+const IconGroupContext = createContext<{
+  onSelect: (icon: string) => void;
+  color?: string;
+}>({
+  onSelect: () => {},
+});
+
+const IconGroupItem = memo(function IconGroupItem({
+  itemId,
+}: {
+  itemId: string;
+}) {
+  const { onSelect, color } = useContext(IconGroupContext);
+
+  return (
+    <IconButton
+      size={24}
+      style={{ padding: 4 }}
+      aria-label={itemId}
+      icon={<AffineIconRenderer style={{ color }} name={itemId} />}
+      onClick={() => onSelect(itemId)}
+    />
+  );
+});
+const IconGroupHeader = memo(function IconGroupHeader({
+  groupId,
+}: {
+  groupId: string;
+}) {
+  return (
+    <div className={pickerStyles.groupName} data-group-name={groupId}>
+      {groupId}
+    </div>
+  );
+});
+
 export const AffineIconPicker = ({
   onSelect,
 }: {
   onSelect?: (icon: string, color: string) => void;
 }) => {
-  const [filteredIcons, setFilteredIcons] = useState<Icon[]>([]);
+  const [groups, setGroups] = useState<IconGroup[]>(iconGroups);
   const [keyword, setKeyword] = useState('');
   const [color, setColor] = useState<string>(cssVarV2.block.callout.icon.blue);
 
@@ -74,16 +107,7 @@ export const AffineIconPicker = ({
 
   useEffect(() => {
     startTransition(() => {
-      if (!keyword) {
-        setFilteredIcons(icons);
-        return;
-      }
-
-      setFilteredIcons(
-        icons.filter(icon =>
-          icon.keywords.some(kw => kw.includes(keyword.toLowerCase()))
-        )
-      );
+      setGroups(filterIconGroups(iconGroups, keyword));
     });
   }, [keyword]);
 
@@ -102,6 +126,39 @@ export const AffineIconPicker = ({
     []
   );
 
+  const items = useMemo(() => {
+    const toGroup = (name: string, icons: string[]) =>
+      ({
+        id: name,
+        height: 30,
+        Component: IconGroupHeader,
+        items: icons.map(
+          icon =>
+            ({
+              id: icon,
+              height: 32,
+              ratio: 1,
+              Component: IconGroupItem,
+            }) satisfies MasonryItem
+        ),
+      }) satisfies MasonryGroup;
+
+    const masonryGroups = groups.map(group =>
+      toGroup(
+        group.name,
+        group.icons.map(icon => icon.name)
+      )
+    );
+    if (recentIcons.length) {
+      masonryGroups.unshift(toGroup('Recent', recentIcons));
+    }
+    return masonryGroups;
+  }, [groups, recentIcons]);
+  const contextValue = useMemo(
+    () => ({ onSelect: handleIconSelect, color }),
+    [handleIconSelect, color]
+  );
+
   return (
     <div className={pickerStyles.root}>
       {/* Search */}
@@ -113,7 +170,7 @@ export const AffineIconPicker = ({
           className={pickerStyles.searchInput}
           preFix={
             <div style={{ marginLeft: 10, lineHeight: 0 }}>
-              <allIcons.SearchIcon
+              <SearchIcon
                 style={{ color: cssVarV2.icon.primary, fontSize: 16 }}
               />
             </div>
@@ -161,55 +218,21 @@ export const AffineIconPicker = ({
         </Menu>
       </header>
 
-      {/* Content */}
-      <Scrollable.Root className={pickerStyles.iconScrollRoot}>
-        <Scrollable.Viewport className={pickerStyles.scrollViewport}>
-          {/* Recent */}
-          {recentIcons.length ? (
-            <div className={pickerStyles.group}>
-              <div className={pickerStyles.groupName} data-group-name="Recent">
-                Recent
-              </div>
-              <div className={pickerStyles.groupGrid}>
-                {recentIcons.map(iconName => (
-                  <IconButton
-                    size={24}
-                    style={{ padding: 4 }}
-                    key={iconName}
-                    icon={
-                      <AffineIconRenderer style={{ color }} name={iconName} />
-                    }
-                    onClick={() => handleIconSelect(iconName)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Groups */}
-          <div className={pickerStyles.group}>
-            <div className={pickerStyles.groupName} data-group-name="Recent">
-              Icons
-            </div>
-            <div className={pickerStyles.groupGrid}>
-              {filteredIcons.map(icon => {
-                return (
-                  <IconButton
-                    size={24}
-                    style={{ padding: 4 }}
-                    key={icon.name}
-                    icon={
-                      <AffineIconRenderer style={{ color }} name={icon.name} />
-                    }
-                    onClick={() => handleIconSelect(icon.name)}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </Scrollable.Viewport>
-        <Scrollable.Scrollbar />
-      </Scrollable.Root>
+      {/* Groups */}
+      <IconGroupContext.Provider value={contextValue}>
+        <div className={pickerStyles.emojiScrollRoot}>
+          <Masonry
+            virtualScroll
+            items={items}
+            itemWidthMin={32}
+            itemWidth={32}
+            paddingX={12}
+            paddingY={8}
+            gapX={4}
+            gapY={4}
+          />
+        </div>
+      </IconGroupContext.Provider>
     </div>
   );
 };

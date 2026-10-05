@@ -19,7 +19,7 @@ import {
 import type { UniComponent } from '@blocksuite/affine-shared/types';
 import * as icons from '@blocksuite/icons/lit';
 import type { BlockComponent } from '@blocksuite/std';
-import { type Signal } from '@preact/signals-core';
+import { effect, type Signal, signal } from '@preact/signals-core';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
@@ -50,7 +50,10 @@ export const renderUniLit = <Props, Expose extends NonNullable<unknown>>(
     style=${options?.style ? styleMap(options?.style) : ''}
   ></uni-lit>`;
 };
-const getIcon = (icon?: IconData) => {
+/**
+ * @param customIconUrl url of the image, only for the icon of custom type
+ */
+const getIcon = (icon?: IconData, customIconUrl?: string | null) => {
   if (!icon) {
     return null;
   }
@@ -62,14 +65,50 @@ const getIcon = (icon?: IconData) => {
       icons as Record<string, (props: { style: string }) => TemplateResult>
     )[`${icon.name}Icon`]?.({ style: `color:${icon.color}` });
   }
+  if (icon.type === IconType.Custom) {
+    // always an <img>, so scripts in an uploaded svg can never run
+    return customIconUrl
+      ? html`<img
+          src=${customIconUrl}
+          alt=""
+          draggable="false"
+          style="display: block; width: 1em; height: 1em; object-fit: contain;"
+        />`
+      : html`<span
+          style="display: block; width: 1em; height: 1em; border-radius: 20%; background: ${
+            cssVarV2.layer.background.tertiary
+          };"
+        ></span>`;
+  }
   return null;
 };
 export class CalloutBlockComponent extends CaptionedBlockComponent<CalloutBlockModel> {
   private _popupCloseHandler: (() => void) | null = null;
 
+  private readonly _customIconUrl$ = signal<string | null>(null);
+
   override connectedCallback() {
     super.connectedCallback();
     this.classList.add(calloutHostStyles);
+
+    // the image of a custom icon is owned by the icon picker service
+    this.disposables.add(
+      effect(() => {
+        const icon = this.model.props.icon$.value;
+        if (icon?.type !== IconType.Custom) return;
+
+        const unwatch = this.std
+          .getOptional(IconPickerServiceIdentifier)
+          ?.watchCustomIconUrl(icon.iconId, url => {
+            this._customIconUrl$.value = url;
+          });
+
+        return () => {
+          unwatch?.();
+          this._customIconUrl$.value = null;
+        };
+      })
+    );
   }
 
   private _getEmojiMarginTop(): string {
@@ -224,7 +263,7 @@ export class CalloutBlockComponent extends CaptionedBlockComponent<CalloutBlockM
       cssVarV2.block.callout.background as Record<string, string>
     )[normalizedBackgroundName ?? 'grey'];
 
-    const iconContent = getIcon(icon);
+    const iconContent = getIcon(icon, this._customIconUrl$.value);
 
     return html`
       <div

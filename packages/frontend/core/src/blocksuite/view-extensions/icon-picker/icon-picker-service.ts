@@ -3,6 +3,7 @@ import { type ExtensionType } from '@blocksuite/affine/store';
 import type { Container } from '@blocksuite/global/di';
 import type { FrameworkProvider } from '@toeverything/infra';
 
+import { CustomIconService } from '../../../modules/custom-icon';
 import { IconPickerService } from '../../../modules/icon-picker/services/icon-picker';
 
 /**
@@ -16,7 +17,19 @@ export function patchIconPickerService(
   return {
     setup: (di: Container) => {
       di.override(IconPickerServiceIdentifier, () => {
-        return framework.get(IconPickerService);
+        return {
+          iconPickerComponent:
+            framework.get(IconPickerService).iconPickerComponent,
+          watchCustomIconUrl: (iconId, callback) => {
+            // custom icons belong to a workspace
+            const customIconService = framework.getOptional(CustomIconService);
+            if (!customIconService) {
+              callback(null);
+              return () => {};
+            }
+            return customIconService.watchUrl(iconId, callback);
+          },
+        };
       });
     },
   };

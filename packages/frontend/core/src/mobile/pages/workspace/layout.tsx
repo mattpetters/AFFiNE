@@ -7,6 +7,7 @@ import {
   DefaultServerService,
   WorkspaceServerService,
 } from '@affine/core/modules/cloud';
+import { WorkspaceCustomIconProvider } from '@affine/core/modules/custom-icon';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { PeekViewManagerModal } from '@affine/core/modules/peek-view';
 import type {
@@ -141,16 +142,18 @@ export const WorkspaceLayout = ({
         <WorkspaceBackReset workspaceId={workspace.id} />
         <AffineErrorBoundary height="100dvh">
           <SWRConfigProvider>
-            <MobileShellHost>
-              <WorkspaceDialogs />
+            <WorkspaceCustomIconProvider>
+              <MobileShellHost>
+                <WorkspaceDialogs />
 
-              {/* ---- some side-effect components ---- */}
-              <PeekViewManagerModal />
-              <AiLoginRequiredModal />
-              <uniReactRoot.Root />
-              <WorkspaceSideEffects />
-              {children}
-            </MobileShellHost>
+                {/* ---- some side-effect components ---- */}
+                <PeekViewManagerModal />
+                <AiLoginRequiredModal />
+                <uniReactRoot.Root />
+                <WorkspaceSideEffects />
+                {children}
+              </MobileShellHost>
+            </WorkspaceCustomIconProvider>
           </SWRConfigProvider>
         </AffineErrorBoundary>
       </FrameworkScope>

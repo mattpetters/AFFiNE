@@ -2582,6 +2582,58 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.history.view-history-version"](): string;
     /**
+      * `Custom`
+      */
+    ["com.affine.icon-picker.custom"](): string;
+    /**
+      * `{{count}} icons added.`
+      */
+    ["com.affine.icon-picker.custom.added"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Delete icon`
+      */
+    ["com.affine.icon-picker.custom.delete-icon"](): string;
+    /**
+      * `Delete pack`
+      */
+    ["com.affine.icon-picker.custom.delete-pack"](): string;
+    /**
+      * `Delete {{count}} icons?`
+      */
+    ["com.affine.icon-picker.custom.delete-pack.confirm"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `No custom icons yet. Upload images to create your first pack.`
+      */
+    ["com.affine.icon-picker.custom.empty"](): string;
+    /**
+      * `Failed to upload icons.`
+      */
+    ["com.affine.icon-picker.custom.failed"](): string;
+    /**
+      * `PNG, JPG, WebP, GIF, SVG, or a zip of them. Up to {{size}} per icon.`
+      */
+    ["com.affine.icon-picker.custom.hint"](options: {
+        readonly size: string;
+    }): string;
+    /**
+      * `My icons`
+      */
+    ["com.affine.icon-picker.custom.pack-name"](): string;
+    /**
+      * `{{count}} files skipped (not an image, or too large).`
+      */
+    ["com.affine.icon-picker.custom.skipped"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Upload`
+      */
+    ["com.affine.icon-picker.custom.upload"](): string;
+    /**
       * `Create into a New Workspace`
       */
     ["com.affine.import-template.dialog.createDocToNewWorkspace"](): string;

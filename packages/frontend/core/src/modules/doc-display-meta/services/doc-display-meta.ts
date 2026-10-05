@@ -25,6 +25,7 @@ import { LiveData, Service } from '@toeverything/infra';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 
+import type { CustomIconService } from '../../custom-icon';
 import type { DocRecord, DocsService } from '../../doc';
 import type { ExplorerIconService } from '../../explorer-icon/services/explorer-icon';
 import type { I18nService } from '../../i18n';
@@ -88,7 +89,8 @@ export class DocDisplayMetaService extends Service {
     private readonly journalService: JournalService,
     private readonly docsService: DocsService,
     private readonly i18nService: I18nService,
-    private readonly explorerIconService: ExplorerIconService
+    private readonly explorerIconService: ExplorerIconService,
+    private readonly customIconService: CustomIconService
   ) {
     super();
   }
@@ -153,7 +155,9 @@ export class DocDisplayMetaService extends Service {
         const icon = get(this.explorerIconService.icon$('doc', docId))?.icon;
         if (icon) {
           return options?.type === 'lit'
-            ? getDocIconComponentLit(icon)
+            ? getDocIconComponentLit(icon, iconId =>
+                get(this.customIconService.url$(iconId))
+              )
             : getDocIconComponent(icon);
         }
       }

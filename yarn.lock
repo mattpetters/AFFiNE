@@ -328,7 +328,7 @@ __metadata:
     check-password-strength: "npm:^3.0.0"
     clsx: "npm:^2.1.1"
     dayjs: "npm:^1.11.13"
-    emojibase-data: "npm:^16.0.3"
+    emojibase-data: "npm:^17.0.0"
     foxact: "npm:^0.2.49"
     jotai: "npm:^2.10.3"
     lit: "npm:^3.2.1"
@@ -20229,12 +20229,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"emojibase-data@npm:^16.0.3":
-  version: 16.0.3
-  resolution: "emojibase-data@npm:16.0.3"
+"emojibase-data@npm:^17.0.0":
+  version: 17.0.0
+  resolution: "emojibase-data@npm:17.0.0"
   peerDependencies:
     emojibase: "*"
-  checksum: 10/d9cd4b961ea5bca483b857bc84e670e77c3dcbeac41ce3b672086a9256a43bc027b34d4adc9f9a2be85e2b76c85a2b5e91280b6518335432bdbd4c671eeba1ec
+  checksum: 10/124e24063c6123c29e9ccb716d88c376beba33c87f2bb6ec7d207d0a2ccf2831d83bf36c95363ff32b9e2c87d32d1b8ddf2e8d2776da804cabe5d0b7d47fde3f
   languageName: node
   linkType: hard
 

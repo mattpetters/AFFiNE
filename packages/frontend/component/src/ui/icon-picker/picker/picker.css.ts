@@ -34,12 +34,6 @@ export const emojiScrollRoot = style([
     paddingTop: '8px',
   },
 ]);
-export const iconScrollRoot = style([
-  scrollRoot,
-  {
-    padding: '0px 12px',
-  },
-]);
 
 export const scrollViewport = style({
   padding: '8px 0px',

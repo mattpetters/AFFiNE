@@ -7,6 +7,7 @@ import { AIIsland } from '@affine/core/desktop/components/ai-island';
 import { AppContainer } from '@affine/core/desktop/components/app-container';
 import { DocumentTitle } from '@affine/core/desktop/components/document-title';
 import { WorkspaceDialogs } from '@affine/core/desktop/dialogs';
+import { WorkspaceCustomIconProvider } from '@affine/core/modules/custom-icon';
 import { PeekViewManagerModal } from '@affine/core/modules/peek-view';
 import { QuotaCheck } from '@affine/core/modules/quota';
 import { WorkbenchService } from '@affine/core/modules/workbench';
@@ -20,22 +21,24 @@ export const WorkspaceLayout = function WorkspaceLayout({
   const currentWorkspace = useService(WorkspaceService).workspace;
   return (
     <SWRConfigProvider>
-      <WorkspaceDialogs />
+      <WorkspaceCustomIconProvider>
+        <WorkspaceDialogs />
 
-      {/* ---- some side-effect components ---- */}
-      {currentWorkspace?.flavour !== 'local' ? (
-        <QuotaCheck workspaceMeta={currentWorkspace.meta} />
-      ) : null}
-      <AiLoginRequiredModal />
-      <WorkspaceSideEffects />
-      <PeekViewManagerModal />
-      <DocumentTitle />
+        {/* ---- some side-effect components ---- */}
+        {currentWorkspace?.flavour !== 'local' ? (
+          <QuotaCheck workspaceMeta={currentWorkspace.meta} />
+        ) : null}
+        <AiLoginRequiredModal />
+        <WorkspaceSideEffects />
+        <PeekViewManagerModal />
+        <DocumentTitle />
 
-      <WorkspaceLayoutInner>{children}</WorkspaceLayoutInner>
-      {/* should show after workspace loaded */}
-      {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
-      <AIIsland />
-      <uniReactRoot.Root />
+        <WorkspaceLayoutInner>{children}</WorkspaceLayoutInner>
+        {/* should show after workspace loaded */}
+        {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
+        <AIIsland />
+        <uniReactRoot.Root />
+      </WorkspaceCustomIconProvider>
     </SWRConfigProvider>
   );
 };

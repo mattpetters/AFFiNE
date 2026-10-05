@@ -17,6 +17,7 @@ import { configureCodeBlockPreviewRendererModule } from './code-block-preview-re
 import { configureCollectionModule } from './collection';
 import { configureCollectionRulesModule } from './collection-rules';
 import { configureCommentModule } from './comment';
+import { configureCustomIconModule } from './custom-icon';
 import { configureWorkspaceDBModule } from './db';
 import { configureDialogModule } from './dialogs';
 import { configureDndModule } from './dnd';
@@ -92,6 +93,7 @@ export function configureCommonModules(framework: Framework) {
   configurePDFModule(framework);
   configurePeekViewModule(framework);
   configureExplorerIconModule(framework);
+  configureCustomIconModule(framework);
   configureDocDisplayMetaModule(framework);
   configureQuickSearchModule(framework);
   configureDocsSearchModule(framework);

@@ -50,7 +50,7 @@
     "check-password-strength": "^3.0.0",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
-    "emojibase-data": "^16.0.3",
+    "emojibase-data": "^17.0.0",
     "foxact": "^0.2.49",
     "jotai": "^2.10.3",
     "lit": "^3.2.1",

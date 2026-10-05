@@ -54,6 +54,30 @@ export const AFFiNE_WORKSPACE_DB_SCHEMA = {
     id: f.string().primaryKey(),
     icon: f.json<IconData>(),
   },
+  customIcon: {
+    id: f.string().primaryKey().optional().default(nanoid),
+    /**
+     * name of the pack this icon belongs to
+     */
+    pack: f.string(),
+    name: f.string(),
+    createdAt: f.number(),
+  },
+  /**
+   * The images of the custom icons, kept in a table (a doc) of their own so
+   * the icons can be listed without reading any image.
+   */
+  customIconData: {
+    /**
+     * id of the custom icon
+     */
+    id: f.string().primaryKey(),
+    mime: f.string(),
+    /**
+     * base64, since there is no binary field
+     */
+    data: f.string(),
+  },
 } as const satisfies DBSchemaBuilder;
 export type AFFiNEWorkspaceDbSchema = typeof AFFiNE_WORKSPACE_DB_SCHEMA;
 

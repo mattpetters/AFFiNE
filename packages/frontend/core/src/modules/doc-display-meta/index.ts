@@ -1,5 +1,6 @@
 import { type Framework } from '@toeverything/infra';
 
+import { CustomIconService } from '../custom-icon';
 import { DocsService } from '../doc';
 import { ExplorerIconService } from '../explorer-icon/services/explorer-icon';
 import { I18nService } from '../i18n';
@@ -17,5 +18,6 @@ export function configureDocDisplayMetaModule(framework: Framework) {
       DocsService,
       I18nService,
       ExplorerIconService,
+      CustomIconService,
     ]);
 }
