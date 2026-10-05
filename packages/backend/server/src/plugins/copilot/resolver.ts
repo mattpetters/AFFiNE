@@ -28,6 +28,7 @@ import {
   TooManyRequest,
 } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { BackendRuntimeProvider } from '../../core/backend-runtime';
 import { DocAction } from '../../core/permission';
 import { UserType } from '../../core/user';
 import type { ListSessionOptions, UpdateChatSession } from '../../models';
@@ -39,7 +40,12 @@ import { ConversationInboxService } from './conversation/inbox';
 import { CopilotEnabled } from './feature';
 import type { StreamObject } from './providers/types';
 import { ChatSessionService } from './session';
-import { type ChatHistory, type ChatMessage, SubmittedMessage } from './types';
+import {
+  byokRouteTargetId,
+  type ChatHistory,
+  type ChatMessage,
+  SubmittedMessage,
+} from './types';
 
 export const COPILOT_LOCKER = 'copilot';
 
@@ -345,6 +351,30 @@ class CopilotRouteOptionsType {
   choices!: CopilotRouteTargetType[];
 }
 
+export function byokRouteChoices(
+  profiles: Awaited<ReturnType<BackendRuntimeProvider['listByokProfiles']>>
+): CopilotRouteTargetType[] {
+  return profiles
+    .filter(profile => profile.enabled)
+    .flatMap(profile =>
+      profile.definition.models
+        .filter(
+          model =>
+            model.enabled &&
+            model.capabilities.some(capability =>
+              capability.output.includes('text')
+            )
+        )
+        .map(model => ({
+          id: byokRouteTargetId(profile.profileId, model.modelId),
+          // clients show the first word as the model and the rest as detail
+          displayName: `${model.modelId} ${profile.name}`,
+          minimumTier: 'Standard',
+          available: true,
+        }))
+    );
+}
+
 // ================== Resolver ==================
 
 @ObjectType('Copilot')
@@ -363,7 +393,8 @@ export class CopilotResolver {
     private readonly chatSession: ChatSessionService,
     private readonly historyProjector: CompatHistoryProjector,
     private readonly inbox: ConversationInboxService,
-    private readonly entitlement: ByokEntitlementPolicy
+    private readonly entitlement: ByokEntitlementPolicy,
+    private readonly runtime: BackendRuntimeProvider
   ) {}
 
   @ResolveField(() => CopilotRouteOptionsType, {
@@ -372,13 +403,21 @@ export class CopilotResolver {
     complexity: 2,
   })
   async routeOptions(
+    @Parent() copilot: CopilotType,
     @CurrentUser() user: CurrentUser,
     @Args('promptName') promptName: string
   ): Promise<CopilotRouteOptionsType | null> {
     const options = llmGetBuiltInRouteOptions(promptName);
     if (!options) return null;
     if (env.selfhosted) {
-      return { routeId: options.routeId, defaultTargetId: null, choices: [] };
+      // managed targets only exist on cloud; offer the workspace's own models
+      return {
+        routeId: options.routeId,
+        defaultTargetId: null,
+        choices: copilot.workspaceId
+          ? await this.workspaceByokRouteChoices(copilot.workspaceId)
+          : [],
+      };
     }
     const premium = await this.entitlement.hasAiPlan(user.id);
     return {
@@ -393,6 +432,14 @@ export class CopilotResolver {
         available: premium || choice.minimumTier === 'Standard',
       })),
     };
+  }
+
+  private async workspaceByokRouteChoices(
+    workspaceId: string
+  ): Promise<CopilotRouteTargetType[]> {
+    if (!(await this.entitlement.hasServerEntitlement(workspaceId))) return [];
+    const profiles = await this.runtime.listByokProfiles(workspaceId);
+    return byokRouteChoices(profiles);
   }
 
   @ResolveField(() => CopilotQuotaType, {

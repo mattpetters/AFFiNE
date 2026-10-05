@@ -2,6 +2,7 @@ mutation probeWorkspaceByokProfile($input: ProbeWorkspaceByokProfileInput!) {
   probeWorkspaceByokProfile(input: $input) {
     definitionFingerprint
     stale
+    availableModels
     connection { kind testedAt errorKind }
     models {
       modelId
@@ -14,6 +15,7 @@ mutation probeWorkspaceByokDraft($input: ProbeWorkspaceByokDraftInput!) {
   probeWorkspaceByokDraft(input: $input) {
     definitionFingerprint
     stale
+    availableModels
     connection { kind testedAt errorKind }
     models {
       modelId

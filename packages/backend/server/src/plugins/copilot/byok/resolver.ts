@@ -145,6 +145,12 @@ class WorkspaceByokProbeResultType {
 
   @Field(() => [WorkspaceByokModelProbeType])
   models!: WorkspaceByokModelProbeType[];
+
+  @Field(() => [String], {
+    description:
+      'Model ids the provider reports for this credential; empty when unknown',
+  })
+  availableModels!: string[];
 }
 
 @ObjectType()
@@ -756,6 +762,7 @@ function projectProbeResult(result: {
       };
     }>;
   }>;
+  availableModels: string[];
 }) {
   return {
     ...result,

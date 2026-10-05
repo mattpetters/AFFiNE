@@ -218,6 +218,9 @@ pub struct ByokProbeResultOutput {
   pub stale: bool,
   pub connection: ByokProbeStatusOutput,
   pub models: Vec<ByokModelProbeOutput>,
+  /// Model ids the provider reports for this credential; empty when unknown.
+  #[serde(default)]
+  pub available_models: Vec<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -395,12 +398,22 @@ fn validate_upper_bound(
     return Ok(());
   }
 
-  let upper_bound =
-    provider_default_capability_upper_bound(provider, model_id).ok_or(ByokContractError::CapabilityUpperBound)?;
-  for capability in capabilities {
-    validate_capability_upper_bound(capability, &upper_bound).map_err(|_| ByokContractError::CapabilityUpperBound)?;
+  let admits = |upper_bound: &[DeclaredModelCapability]| {
+    capabilities
+      .iter()
+      .all(|capability| validate_capability_upper_bound(capability, upper_bound).is_ok())
+  };
+  let admitted = match provider_default_capability_upper_bound(provider, model_id) {
+    Some(upper_bound) => admits(&upper_bound),
+    None => super::catalog::unlisted_model_upper_bounds(provider)
+      .iter()
+      .any(|upper_bound| admits(upper_bound)),
+  };
+  if admitted {
+    Ok(())
+  } else {
+    Err(ByokContractError::CapabilityUpperBound)
   }
-  Ok(())
 }
 
 fn input_name(value: &ModelInput) -> &'static str {
@@ -530,6 +543,23 @@ mod tests {
       attachment_kinds: vec![],
       attachment_sources: vec![],
     }
+  }
+
+  #[test]
+  fn accepts_provider_default_models_missing_from_the_bundled_registry() {
+    let provider_default = |model_id: &str| ByokProfileDefinitionInput {
+      endpoint: ByokEndpointInput {
+        kind: "provider_default".to_string(),
+        url: None,
+        dialect: None,
+      },
+      ..definition(model_id, vec![text_capability()])
+    };
+    for provider in ["openai", "anthropic", "gemini"] {
+      let validated = validate_definition(provider, provider_default("released-after-this-build")).unwrap();
+      assert_eq!(validated.models[0].model_id, "released-after-this-build");
+    }
+    assert!(validate_definition("fal", provider_default("released-after-this-build")).is_err());
   }
 
   #[test]

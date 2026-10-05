@@ -219,6 +219,37 @@ export function catalogModels(settings: ByokSettings, provider: ByokProvider) {
   );
 }
 
+/**
+ * Adds models the provider reports but the bundled catalog does not list yet.
+ * They take the capabilities of the provider's recommended text model, which
+ * is also the bound the server validates unlisted models against.
+ */
+export function mergeLiveModels(
+  catalog: ReturnType<typeof catalogModels>,
+  liveModelIds: string[]
+) {
+  const template = catalog.find(
+    model =>
+      model.recommended &&
+      model.capabilities.some(capability =>
+        capability.output.includes(ByokModelOutput.text)
+      )
+  );
+  if (!template) return catalog;
+  const known = new Set(catalog.map(model => model.modelId));
+  return [
+    ...catalog,
+    ...liveModelIds
+      .filter(modelId => !known.has(modelId))
+      .map(modelId => ({
+        ...template,
+        modelId,
+        displayName: modelId,
+        recommended: false,
+      })),
+  ];
+}
+
 export function defaultModels(settings: ByokSettings, provider: ByokProvider) {
   const catalog = catalogModels(settings, provider);
   const selected = catalog.filter(model => model.recommended);

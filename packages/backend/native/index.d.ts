@@ -372,6 +372,8 @@ export interface ByokProbeResultOutput {
   stale: boolean
   connection: ByokProbeStatusOutput
   models: Array<ByokModelProbeOutput>
+  /** Model ids the provider reports for this credential; empty when unknown. */
+  availableModels: Array<string>
 }
 
 export interface ByokProbeStatusOutput {

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Duration};
 
 use llm_adapter::{
   backend::{BackendError, DefaultHttpClient},
@@ -103,13 +103,108 @@ pub(super) async fn execute_probe(
   }
 
   let connection = connection_status(tested_at_ms, &models);
+  let available_models = list_provider_models(provider, &definition.endpoint, &credential).await;
 
   Ok(ByokProbeResultOutput {
     definition_fingerprint: definition_fingerprint(definition),
     stale: false,
     connection,
     models,
+    available_models,
   })
+}
+
+/// Best effort: the provider's own model list lets clients offer models the
+/// bundled catalog does not know yet. Any failure yields an empty list.
+async fn list_provider_models(
+  provider: &str,
+  endpoint: &ByokEndpoint,
+  credential: &SensitiveCredential,
+) -> Vec<String> {
+  if !matches!(endpoint, ByokEndpoint::ProviderDefault) {
+    return Vec::new();
+  }
+  let Ok(key) = std::str::from_utf8(credential.expose()) else {
+    return Vec::new();
+  };
+  let Ok(client) = crate::runtime::webpki_tls_config()
+    .map_err(|error| error.to_string())
+    .and_then(|tls| {
+      reqwest::Client::builder()
+        .tls_backend_preconfigured(tls)
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|error| error.to_string())
+    })
+  else {
+    return Vec::new();
+  };
+  let request = match provider {
+    "openai" => client.get("https://api.openai.com/v1/models").bearer_auth(key),
+    "anthropic" => client
+      .get("https://api.anthropic.com/v1/models?limit=1000")
+      .header("x-api-key", key)
+      .header("anthropic-version", "2023-06-01"),
+    "gemini" => client
+      .get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000")
+      .header("x-goog-api-key", key),
+    _ => return Vec::new(),
+  };
+  let Ok(response) = request.send().await else {
+    return Vec::new();
+  };
+  if !response.status().is_success() {
+    return Vec::new();
+  }
+  match response.json::<serde_json::Value>().await {
+    Ok(body) => parse_provider_models(provider, &body),
+    Err(_) => Vec::new(),
+  }
+}
+
+// ponytail: OpenAI's list has no capability metadata, so non-chat families are
+// dropped by name; switch to provider metadata if OpenAI ever exposes it.
+const OPENAI_NON_CHAT_MARKERS: [&str; 12] = [
+  "embedding",
+  "tts",
+  "whisper",
+  "dall-e",
+  "moderation",
+  "transcribe",
+  "realtime",
+  "audio",
+  "image",
+  "sora",
+  "babbage",
+  "davinci",
+];
+
+fn parse_provider_models(provider: &str, body: &serde_json::Value) -> Vec<String> {
+  let mut models = match provider {
+    "gemini" => body["models"]
+      .as_array()
+      .into_iter()
+      .flatten()
+      .filter(|model| {
+        model["supportedGenerationMethods"]
+          .as_array()
+          .is_some_and(|methods| methods.iter().any(|method| method == "generateContent"))
+      })
+      .filter_map(|model| model["name"].as_str())
+      .map(|name| name.trim_start_matches("models/").to_string())
+      .collect::<Vec<_>>(),
+    _ => body["data"]
+      .as_array()
+      .into_iter()
+      .flatten()
+      .filter_map(|model| model["id"].as_str())
+      .filter(|id| provider != "openai" || !OPENAI_NON_CHAT_MARKERS.iter().any(|marker| id.contains(marker)))
+      .map(str::to_string)
+      .collect(),
+  };
+  models.sort();
+  models.dedup();
+  models
 }
 
 fn dispatch_check(
@@ -434,6 +529,26 @@ mod tests {
   use llm_adapter::target::OpenAiDialect;
 
   use super::*;
+
+  #[test]
+  fn provider_model_lists_are_parsed_per_provider() {
+    let openai = json!({"data": [
+      {"id": "gpt-next"}, {"id": "gpt-4o"}, {"id": "gpt-4o"},
+      {"id": "text-embedding-3-small"}, {"id": "whisper-1"}, {"id": "gpt-image-9"}
+    ]});
+    assert_eq!(parse_provider_models("openai", &openai), vec!["gpt-4o", "gpt-next"]);
+
+    let anthropic = json!({"data": [{"id": "claude-next", "display_name": "Claude Next"}], "has_more": false});
+    assert_eq!(parse_provider_models("anthropic", &anthropic), vec!["claude-next"]);
+
+    let gemini = json!({"models": [
+      {"name": "models/gemini-next", "supportedGenerationMethods": ["generateContent"]},
+      {"name": "models/embed-only", "supportedGenerationMethods": ["embedContent"]}
+    ]});
+    assert_eq!(parse_provider_models("gemini", &gemini), vec!["gemini-next"]);
+
+    assert!(parse_provider_models("openai", &json!({"error": "nope"})).is_empty());
+  }
 
   fn read_request(stream: &mut TcpStream) -> String {
     let mut request = Vec::new();

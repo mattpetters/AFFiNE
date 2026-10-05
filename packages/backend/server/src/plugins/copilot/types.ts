@@ -37,6 +37,26 @@ const ToolsConfigSchema = z.preprocess(
 
 export type ToolsConfig = z.infer<typeof ToolsConfigSchema>;
 
+// Route choices backed by a workspace BYOK profile carry the explicit
+// profile/model target in their id, so clients can send them as routeTargetId.
+const BYOK_ROUTE_TARGET_PREFIX = 'byok:';
+
+export function byokRouteTargetId(profileId: string, modelId: string) {
+  return `${BYOK_ROUTE_TARGET_PREFIX}${profileId}:${modelId}`;
+}
+
+export function parseByokRouteTargetId(routeTargetId: string) {
+  if (!routeTargetId.startsWith(BYOK_ROUTE_TARGET_PREFIX)) return undefined;
+  const target = routeTargetId.slice(BYOK_ROUTE_TARGET_PREFIX.length);
+  // model ids are opaque and may contain ':', profile ids never do
+  const separator = target.indexOf(':');
+  if (separator <= 0 || separator === target.length - 1) return undefined;
+  return {
+    profileId: target.slice(0, separator),
+    modelId: target.slice(separator + 1),
+  };
+}
+
 export const ChatQuerySchema = z
   .object({
     messageId: zMaybeString,
@@ -79,18 +99,24 @@ export const ChatQuerySchema = z
       webSearch,
       toolsConfig,
       ...params
-    }) => ({
-      messageId,
-      profileId,
-      modelId,
-      routeTargetId,
-      byokLeaseId,
-      retry,
-      reasoning,
-      webSearch,
-      toolsConfig,
-      params,
-    })
+    }) => {
+      const byokTarget =
+        !profileId && routeTargetId
+          ? parseByokRouteTargetId(routeTargetId)
+          : undefined;
+      return {
+        messageId,
+        profileId: byokTarget?.profileId ?? profileId,
+        modelId: byokTarget?.modelId ?? modelId,
+        routeTargetId: byokTarget ? undefined : routeTargetId,
+        byokLeaseId,
+        retry,
+        reasoning,
+        webSearch,
+        toolsConfig,
+        params,
+      };
+    }
   );
 
 // ======== ChatMessage ========

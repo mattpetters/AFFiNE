@@ -2744,6 +2744,8 @@ input WorkspaceByokProbeCheckInput {
 }
 
 type WorkspaceByokProbeResultType {
+  """Model ids the provider reports for this credential; empty when unknown"""
+  availableModels: [String!]!
   connection: WorkspaceByokProbeStatusType!
   definitionFingerprint: String!
   models: [WorkspaceByokModelProbeType!]!

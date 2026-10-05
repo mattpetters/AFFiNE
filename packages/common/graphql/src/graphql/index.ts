@@ -1187,9 +1187,9 @@ export const copilotQuotaQuery = {
 export const getCopilotRouteOptionsQuery = {
   id: 'getCopilotRouteOptionsQuery' as const,
   op: 'getCopilotRouteOptions',
-  query: `query getCopilotRouteOptions($promptName: String!) {
+  query: `query getCopilotRouteOptions($workspaceId: String, $promptName: String!) {
   currentUser {
-    copilot {
+    copilot(workspaceId: $workspaceId) {
       routeOptions(promptName: $promptName) {
         routeId
         defaultTargetId
@@ -2740,6 +2740,7 @@ export const probeWorkspaceByokProfileMutation = {
   probeWorkspaceByokProfile(input: $input) {
     definitionFingerprint
     stale
+    availableModels
     connection {
       kind
       testedAt
@@ -2767,6 +2768,7 @@ export const probeWorkspaceByokDraftMutation = {
   probeWorkspaceByokDraft(input: $input) {
     definitionFingerprint
     stale
+    availableModels
     connection {
       kind
       testedAt

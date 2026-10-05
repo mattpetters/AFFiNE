@@ -3460,6 +3460,8 @@ export interface WorkspaceByokProbeCheckInput {
 
 export interface WorkspaceByokProbeResultType {
   __typename?: 'WorkspaceByokProbeResultType';
+  /** Model ids the provider reports for this credential; empty when unknown */
+  availableModels: Array<Scalars['String']['output']>;
   connection: WorkspaceByokProbeStatusType;
   definitionFingerprint: Scalars['String']['output'];
   models: Array<WorkspaceByokModelProbeType>;
@@ -5250,6 +5252,7 @@ export type CopilotQuotaQuery = {
 };
 
 export type GetCopilotRouteOptionsQueryVariables = Exact<{
+  workspaceId?: InputMaybe<Scalars['String']['input']>;
   promptName: Scalars['String']['input'];
 }>;
 
@@ -7334,6 +7337,7 @@ export type ProbeWorkspaceByokProfileMutation = {
     __typename?: 'WorkspaceByokProbeResultType';
     definitionFingerprint: string;
     stale: boolean;
+    availableModels: Array<string>;
     connection: {
       __typename?: 'WorkspaceByokProbeStatusType';
       kind: ByokProbeStatusKind;
@@ -7367,6 +7371,7 @@ export type ProbeWorkspaceByokDraftMutation = {
     __typename?: 'WorkspaceByokProbeResultType';
     definitionFingerprint: string;
     stale: boolean;
+    availableModels: Array<string>;
     connection: {
       __typename?: 'WorkspaceByokProbeStatusType';
       kind: ByokProbeStatusKind;

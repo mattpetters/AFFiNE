@@ -69,7 +69,7 @@ export class AIModelService extends Service {
     const requestId = ++this.requestId;
     const result = await this.gqlService.gql({
       query: getCopilotRouteOptionsQuery,
-      variables: { promptName: routeId },
+      variables: { workspaceId, promptName: routeId },
     });
     if (requestId !== this.requestId) return;
     const options = result.currentUser?.copilot?.routeOptions;

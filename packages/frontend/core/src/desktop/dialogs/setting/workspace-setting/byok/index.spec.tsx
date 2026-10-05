@@ -373,6 +373,7 @@ describe('BYOK settings behavior', () => {
           probeWorkspaceByokDraft: {
             definitionFingerprint: 'fingerprint',
             stale: false,
+            availableModels: [],
             connection: { kind: 'verified' },
             models: [
               {
@@ -446,6 +447,7 @@ describe('BYOK settings behavior', () => {
           probeWorkspaceByokDraft: {
             definitionFingerprint: 'fingerprint',
             stale: false,
+            availableModels: [],
             connection: { kind: 'verified' },
             models: [],
           },
@@ -501,6 +503,7 @@ describe('BYOK settings behavior', () => {
           probeWorkspaceByokDraft: {
             definitionFingerprint: 'fingerprint',
             stale: false,
+            availableModels: [],
             connection: { kind: 'verified' },
             models: [
               {
@@ -559,8 +562,16 @@ describe('BYOK settings behavior', () => {
       />
     );
 
+    // opening a saved server key lists the provider's models without checks
+    await waitFor(() => expect(gql).toHaveBeenCalledTimes(1));
+    expect(gql.mock.calls[0][0].variables?.input).toMatchObject({
+      credential: null,
+      expectedRevision: 7,
+      checks: [],
+    });
+
     fireEvent.click(screen.getByText('save-changes'));
-    await waitFor(() => expect(gql).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(gql).toHaveBeenCalledTimes(3));
     const replaceCall = gql.mock.calls.find(
       call => call[0].query === replaceMutation
     );

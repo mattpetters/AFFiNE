@@ -24,6 +24,7 @@ import { ModelSelector } from './model-selector';
 import {
   catalogModels,
   defaultModels,
+  mergeLiveModels,
   type ModelDeclaration,
   modelUseCases,
   probeChecks,
@@ -89,9 +90,10 @@ export const AddKeyModal = ({
     customEndpointMode,
     settings.policy.privateEndpointSupported
   );
+  const [liveModelIds, setLiveModelIds] = useState<string[]>([]);
   const providerCatalog = useMemo(
-    () => catalogModels(settings, provider),
-    [provider, settings]
+    () => mergeLiveModels(catalogModels(settings, provider), liveModelIds),
+    [liveModelIds, provider, settings]
   );
 
   useEffect(() => {
@@ -117,7 +119,45 @@ export const AddKeyModal = ({
     );
     setTestStatus(null);
     setIncludeImageProbe(false);
+    setLiveModelIds([]);
   }, [canAddServerKey, editingKey, open, settings]);
+
+  // a saved server key can list its provider's current models right away;
+  // a new key gets the list from its first connection test
+  useEffect(() => {
+    if (
+      !open ||
+      !gql ||
+      editingKey?.storage !== ByokStorage.server ||
+      editingKey.definition.endpoint.kind !== ByokEndpointKind.provider_default
+    ) {
+      return;
+    }
+    let cancelled = false;
+    gql({
+      query: probeWorkspaceByokDraftMutation,
+      variables: {
+        input: {
+          workspaceId,
+          provider: editingKey.provider,
+          credential: null,
+          profileId: editingKey.id,
+          expectedRevision: editingKey.revision ?? null,
+          definition: editingKey.definition,
+          checks: [],
+        },
+      },
+    })
+      .then(result => {
+        if (!cancelled) {
+          setLiveModelIds(result.probeWorkspaceByokDraft.availableModels);
+        }
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [editingKey, gql, open, workspaceId]);
 
   const definition = useMemo<ByokDefinition>(
     () => ({
@@ -160,6 +200,7 @@ export const AddKeyModal = ({
       },
     });
     const probe = result.probeWorkspaceByokDraft;
+    setLiveModelIds(probe.availableModels);
     const nextModels = retainVerifiedCapabilities(models, probe.models);
     const nextDefinition = { ...definition, models: nextModels };
     const hasVerifiedCheck = probe.models.some(model =>
@@ -351,6 +392,7 @@ export const AddKeyModal = ({
                 setEndpoint('');
                 setDialect(null);
                 setModels(defaultModels(settings, next));
+                setLiveModelIds([]);
                 invalidateTest();
               }}
             >

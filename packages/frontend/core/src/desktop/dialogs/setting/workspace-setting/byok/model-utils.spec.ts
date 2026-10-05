@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   capabilitiesForUseCases,
+  mergeLiveModels,
   type ModelDeclaration,
   modelUseCases,
   retainVerifiedCapabilities,
@@ -109,5 +110,51 @@ describe('BYOK model capabilities', () => {
       capabilities: [embeddingCapability],
     });
     expect(modelUseCases(retained)).toEqual(['embedding']);
+  });
+
+  test('offers provider models missing from the catalog with the recommended text capabilities', () => {
+    const textCapability = {
+      input: [ByokModelInput.text],
+      output: [ByokModelOutput.text],
+      features: [ByokModelFeature.tool_calling],
+      attachmentKinds: [],
+      attachmentSources: [],
+    };
+    const catalog = [
+      {
+        modelId: 'image-default',
+        displayName: 'Image Default',
+        recommended: true,
+        capabilities: [
+          {
+            ...textCapability,
+            output: [ByokModelOutput.image],
+            features: [],
+          },
+        ],
+      },
+      {
+        modelId: 'chat-default',
+        displayName: 'Chat Default',
+        recommended: true,
+        capabilities: [textCapability],
+      },
+    ];
+
+    const merged = mergeLiveModels(catalog, ['chat-default', 'chat-next']);
+    expect(merged.map(model => model.modelId)).toEqual([
+      'image-default',
+      'chat-default',
+      'chat-next',
+    ]);
+    expect(merged[2]).toEqual({
+      modelId: 'chat-next',
+      displayName: 'chat-next',
+      recommended: false,
+      capabilities: [textCapability],
+    });
+
+    // without a recommended text model there is no safe bound to copy
+    expect(mergeLiveModels([catalog[0]], ['chat-next'])).toEqual([catalog[0]]);
   });
 });

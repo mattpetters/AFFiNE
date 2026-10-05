@@ -1,6 +1,6 @@
-query getCopilotRouteOptions($promptName: String!) {
+query getCopilotRouteOptions($workspaceId: String, $promptName: String!) {
   currentUser {
-    copilot {
+    copilot(workspaceId: $workspaceId) {
       routeOptions(promptName: $promptName) {
         routeId
         defaultTargetId
