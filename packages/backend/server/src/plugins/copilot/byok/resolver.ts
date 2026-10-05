@@ -762,10 +762,12 @@ function projectProbeResult(result: {
       };
     }>;
   }>;
-  availableModels: string[];
+  availableModels?: string[];
 }) {
   return {
     ...result,
+    // a native module built before provider model listing returns no list
+    availableModels: result.availableModels ?? [],
     connection: projectProbe(result.connection),
     models: result.models.map(model => ({
       ...model,
